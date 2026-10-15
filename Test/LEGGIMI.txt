@@ -1,0 +1,61 @@
+﻿TEST DI FISIOTERAPIA VETERINARIA
+
+Pacchetto statico per GitHub Pages
+
+CONTENUTO
+10 test a risposta multipla, ciascuno con 40 domande.
+10 test a risposta aperta, ciascuno con 20 domande.
+600 domande distinte, con soluzioni e riferimenti al PDF del libro.
+Le domande multiple hanno correzione automatica; quelle aperte hanno
+una risposta modello e autovalutazione. Non sono richieste chiavi API.
+
+FILE DA CARICARE
+index.html
+styles.css
+app.js
+questions.js
+.nojekyll (facoltativo per questi file statici)
+
+Mantieni questi file nella stessa cartella, alla radice del repository.
+Non caricare lo ZIP come unico file: estrailo prima.
+
+PUBBLICAZIONE CON GITHUB PAGES
+Crea un repository pubblico nel tuo account GitHub.
+Carica i file estratti e salva le modifiche nel ramo principale.
+Apri Settings > Pages del repository.
+In Build and deployment scegli Deploy from a branch.
+Seleziona il ramo in cui hai caricato i file (normalmente main) e la
+cartella / (root), poi Save.
+Quando la pubblicazione termina, copia il link mostrato da GitHub Pages.
+Quello è il link da inviare allo studente su WhatsApp.
+
+Il servizio fornisce un indirizzo sotto github.io. È un indirizzo gratuito
+del servizio; un dominio personalizzato acquistato separatamente è opzionale.
+I percorsi dei file sono relativi, quindi funzionano anche quando il sito
+si trova sotto il nome del repository.
+
+PROVA LOCALE
+Apri index.html in un browser dopo aver estratto tutti i file nella stessa
+cartella. Per condividere da telefono usa il link pubblicato su GitHub Pages.
+
+PROGRESSI E RISULTATI
+I progressi sono salvati nel browser e sul dispositivo dello studente.
+Non vengono inviati al docente e non sono sincronizzati fra dispositivi.
+Il browser interno di WhatsApp e il browser abituale possono avere archivi
+separati. Per riprendere il test va usato lo stesso browser.
+La cancellazione dei dati del browser può eliminare i progressi.
+Dopo la consegna puoi esportare e copiare il testo con risposte e risultato.
+Ripetendo un test, dopo conferma, si sostituisce soltanto il relativo tentativo.
+
+FONTE E LIMITI
+Ludovica Dragone, Fisioterapia riabilitativa del cane e del gatto, Edra.
+Le domande sono state rielaborate per il ripasso dei nove capitoli del PDF
+fornito, composto da 258 pagine. Il libro originale non è incluso.
+I riferimenti indicano la pagina nel PDF, contando dalla copertina, e possono
+differire dal numero stampato sul libro.
+Materiale di studio, non esame ufficiale né protocollo clinico.
+Le soluzioni sono incluse nei file: il programma è pensato per esercitarsi.
+
+ISTRUZIONI UFFICIALI GITHUB
+https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site
+https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site

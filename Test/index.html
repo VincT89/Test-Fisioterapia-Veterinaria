@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#743b36">
+  <meta name="description" content="Test di ripasso sulla fisioterapia riabilitativa del cane e del gatto: scelta multipla con correzione e domande aperte con risposte modello.">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Test di fisioterapia veterinaria</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="questions.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Vai al contenuto</a>
+  <header class="site-header"><div class="header-inner"><a class="brand" href="#m">Fisioterapia veterinaria<span>Studio e autovalutazione</span></a><nav aria-label="Navigazione principale"><a href="#m">I test</a><a href="#guida">Guida</a></nav></div></header>
+  <div id="storage-notice" class="notice" role="status" hidden></div>
+  <main id="main" tabindex="-1"></main>
+  <footer class="site-footer">Materiale di ripasso basato sul manuale di Ludovica Dragone. Non è una prova ufficiale né un protocollo clinico.</footer>
+  <div id="status" class="sr-only" role="status" aria-live="polite"></div>
+  <dialog id="confirm-dialog" aria-labelledby="dialog-title" aria-describedby="dialog-description">
+    <h2 id="dialog-title"></h2><p id="dialog-description"></p>
+    <div class="dialog-actions"><button id="dialog-cancel" type="button" autofocus>Annulla</button><button id="dialog-confirm" class="primary" type="button">Conferma</button></div>
+  </dialog>
+  <dialog id="export-dialog" aria-labelledby="export-title">
+    <h2 id="export-title">Le tue risposte, da conservare</h2>
+    <p>Il testo comprende domande, risposte, soluzioni e risultato. Puoi copiarlo e salvarlo dove preferisci.</p>
+    <label class="sr-only" for="export-text">Testo completo del risultato</label><textarea id="export-text" readonly></textarea>
+    <p id="export-status" class="small" role="status"></p>
+    <div class="dialog-actions"><button id="export-close" type="button">Chiudi</button><button id="export-copy" type="button" class="primary">Copia tutto</button></div>
+  </dialog>
+  <noscript><p class="notice">Per svolgere i test è necessario attivare JavaScript nel browser.</p></noscript>
+</body>
+</html>
