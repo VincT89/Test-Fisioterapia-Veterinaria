@@ -5,7 +5,9 @@
   const status = document.getElementById('status');
   const notice = document.getElementById('storage-notice');
   const dialog = document.getElementById('confirm-dialog');
-  const key = 'fisioterapia-veterinaria-progressi-v1';
+  const key = 'fisioterapia-veterinaria-progressi-v2';
+  const legacyKey = 'fisioterapia-veterinaria-progressi-v1';
+  const revisedQuestions = new Set(data.revisedQuestionIds || []);
   const tests = new Map(data.tests.map(test => [test.id, test]));
   const labels = ['Da ripassare', 'Parziale', 'Completa'];
   const letters = ['A', 'B', 'C', 'D'];
@@ -13,6 +15,7 @@
   let onlyErrors = false;
   let confirmAction = null;
   let persistError = false;
+  let migrationPending = false;
   const esc = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const own = (object, prop) => Object.prototype.hasOwnProperty.call(object, prop);
   function message(text) { status.textContent = text; }
@@ -21,15 +24,18 @@
   function load() {
     let result = fresh();
     try {
-      const stored = JSON.parse(localStorage.getItem(key) || 'null');
+      /** Un archivio distinto conserva la versione precedente e impedisce alle vecchie schede di sovrascrivere i nuovi progressi. */
+      const saved = localStorage.getItem(key);
+      const stored = JSON.parse(saved === null ? (localStorage.getItem(legacyKey) || 'null') : saved);
       if (!stored) return result;
-      if (stored.schema !== 1 || stored.dataset !== data.version || !stored.attempts || typeof stored.attempts !== 'object') {
+      const migrating = stored.dataset === data.previousVersion;
+      if (stored.schema !== 1 || (!migrating && stored.dataset !== data.version) || !stored.attempts || typeof stored.attempts !== 'object' || Array.isArray(stored.attempts)) {
         showNotice('I progressi salvati appartengono a una versione diversa. Questa raccolta inizia senza risposte.');
         return result;
       }
       for (const test of data.tests) {
         const a = stored.attempts[test.id];
-        if (!a || typeof a !== 'object') continue;
+        if (!a || typeof a !== 'object' || Array.isArray(a)) continue;
         const clean = {answers:{}, grades:{}, index:0, submitted:a.submitted === true};
         clean.index = Number.isInteger(a.index) ? Math.min(Math.max(0,a.index),test.questions.length-1) : 0;
         for (const question of test.questions) {
@@ -37,9 +43,19 @@
           if (test.kind === 'M' && Number.isInteger(answer) && answer >= 0 && answer <= 3) clean.answers[question.id] = answer;
           if (test.kind === 'O' && typeof answer === 'string') clean.answers[question.id] = answer.slice(0,8000);
           const grade = a.grades?.[question.id];
-          if (test.kind === 'O' && clean.submitted && Number.isInteger(grade) && grade >= 0 && grade <= 2) clean.grades[question.id] = grade;
+          if (test.kind === 'O' && Number.isInteger(grade) && grade >= 0 && grade <= 2) clean.grades[question.id] = grade;
+        }
+        /** Gli identificativi nuovi evitano di riutilizzare risposte e voti di quesiti sostituiti. */
+        const firstRevised = migrating ? test.questions.findIndex(question => revisedQuestions.has(question.id)) : -1;
+        if (firstRevised !== -1) {
+          clean.submitted = false;
+          clean.index = firstRevised;
         }
         result.attempts[test.id] = clean;
+      }
+      if (migrating) {
+        migrationPending = true;
+        if (Object.keys(result.attempts).length) showNotice('Raccolta aggiornata: escluse le domande sulle tecniche chirurgiche. Le risposte alle domande rimaste sono state conservate. I test modificati sono da completare e riconsegnare.');
       }
     } catch {
       showNotice('Il browser non consente di leggere i progressi salvati. Puoi svolgere i test; verifica l’avviso di salvataggio prima di chiudere.');
@@ -82,10 +98,10 @@
     document.title = 'Test di fisioterapia veterinaria';
     const multiple = kind === 'M';
     main.innerHTML = `<div class="home-intro"><div><h1 tabindex="-1">Allenati per l’esame.</h1><p>Scegli una prova, rispondi con i tuoi tempi e torna sui concetti da ripassare.</p></div><div class="book-reference"><p>Il manuale di riferimento</p><cite>Fisioterapia riabilitativa <br>del cane e del gatto</cite><span>Ludovica Dragone, Edra</span></div></div><section class="test-selector" aria-label="Scegli un test"><nav class="test-types" aria-label="Tipo di test"><a href="#m" ${multiple?'aria-current="page"':''}><strong>Risposta multipla</strong><span>40 domande e correzione automatica</span></a><a href="#o" ${!multiple?'aria-current="page"':''}><strong>Risposta aperta</strong><span>20 domande e risposte modello</span></a></nav><div class="list-intro"><h2>${multiple?'Scegli un test a risposta multipla':'Scegli un test a risposta aperta'}</h2><p>${multiple?'Una sola risposta corretta per domanda.':'Consegna, confronta e autovaluta le tue risposte.'}</p></div><ul class="test-list">${data.tests.filter(t=>t.kind===kind).map(t=>{
-      const a = state.attempts[t.id]; let detail = `${t.questions.length} domande su tutti gli argomenti`; let action = 'Inizia';
+      const a = state.attempts[t.id]; let detail = `${t.questions.length} domande su più argomenti`; let action = 'Inizia';
       if(a){const n=countAnswered(t,a);if(a.submitted){action=multiple?'Correzione':'Confronta';detail=multiple?`${score(t,a)} corrette su 40. Test completato.`:`${openScore(t,a).count} autovalutate su 20. Test consegnato.`;}else{action='Riprendi';detail=`In corso. ${n} risposte inserite su ${t.questions.length}.`;}}
       return `<li class="test-row"><div><h3>Test ${t.number}</h3><p>${detail}</p></div><a class="test-action ${a?'started':''}" href="#${t.id}" aria-label="${action} il test ${t.number} a risposta ${multiple?'multipla':'aperta'}">${action}</a></li>`;
-    }).join('')}</ul><p class="save-note">I progressi restano in questo browser. Puoi interrompere una prova e riprenderla più tardi.</p></section><div class="home-notes"><details><summary>Che cosa troverai nei test</summary><p>600 domande distinte, ricavate dai nove capitoli del manuale. Ogni prova combina più argomenti.</p><ul>${data.topics.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><p>Ogni soluzione indica le pagine del PDF da rileggere. <a href="#guida">Fonte e istruzioni</a></p></details>${/^https?:$/.test(location.protocol)?'<button class="text-button copy-link" data-action="copy-link">Copia il link del programma</button>':''}</div>`;
+    }).join('')}</ul><p class="save-note">I progressi restano in questo browser. Puoi interrompere una prova e riprenderla più tardi.</p></section><div class="home-notes"><details><summary>Che cosa troverai nei test</summary><p>600 domande distinte, ricavate dai nove capitoli del manuale. Ogni prova combina più argomenti. Sono escluse le domande sulle tecniche chirurgiche; resta inclusa la riabilitazione postoperatoria.</p><ul>${data.topics.map(t=>`<li>${esc(t)}</li>`).join('')}</ul><p>Ogni soluzione indica le pagine del PDF da rileggere. <a href="#guida">Fonte e istruzioni</a></p></details>${/^https?:$/.test(location.protocol)?'<button class="text-button copy-link" data-action="copy-link">Copia il link del programma</button>':''}</div>`;
   }
   function renderQuiz(test) {
     const a = attempt(test); const q = test.questions[a.index]; const n = countAnswered(test,a);
@@ -118,7 +134,7 @@
   function renderGuide() {
     current=null;
     document.title='Guida | Test di fisioterapia veterinaria';
-    main.innerHTML=`<article class="guide"><a class="back-link" href="#m">Torna ai test</a><h1 tabindex="-1">Come usare i test</h1><p>La raccolta comprende <strong>10 test a risposta multipla di 40 domande</strong> e <strong>10 test a risposta aperta di 20 domande</strong>. Le 600 domande sono distinte; alcuni concetti vengono ripresi da prospettive diverse. Ogni test attraversa più argomenti del manuale.</p><h2>Risposte e correzione</h2><p>Nelle prove a scelta multipla c’è una sola risposta corretta. Puoi saltare una domanda e tornarci prima di consegnare. Alla consegna vengono mostrati il punteggio, le risposte corrette e i riferimenti alle pagine. Le risposte errate o non date valgono zero: non ci sono penalità.</p><p>Nelle prove aperte scrivi prima la tua risposta e, dopo la consegna, confrontala con il modello. I modelli sintetizzano i punti da ricordare: formulazioni diverse possono essere altrettanto valide. L’autovalutazione da 0 a 2 punti è scelta da te; non viene effettuata alcuna correzione tramite IA.</p><p>Da ogni test consegnato puoi esportare e copiare un testo completo con domande, risposte e risultati. Puoi anche ripetere il test: dopo conferma, il tentativo precedente di quel test viene sostituito.</p><h2>Riprendere un test</h2><p>Le risposte sono salvate nel browser e sul dispositivo che stai usando. Per ritrovarle, apri il link nello stesso browser. La navigazione privata, la cancellazione dei dati del browser o il passaggio dal browser interno di WhatsApp a un altro browser possono rendere indisponibili i progressi. Non c’è sincronizzazione fra dispositivi.</p><p>Il programma non invia le risposte al docente o ad altri studenti. Se desideri conservare il risultato, esportalo dopo la consegna. Questo è uno strumento di esercitazione: le soluzioni sono incluse nel programma.</p><h2>Libro e riferimenti</h2><p>Fonte: <cite>Fisioterapia riabilitativa del cane e del gatto</cite>, Ludovica Dragone, Edra, PDF fornito di 258 pagine. Domande e risposte sono una rielaborazione per il ripasso; il libro e le sue immagini non sono inclusi nel programma.</p><p>I riferimenti indicano <strong>il numero della pagina nel file PDF</strong>, contando dalla copertina, e non sempre coincidono con il numero stampato sul libro. Per esempio, la pagina 215 del PDF corrisponde all’inizio del capitolo sui protocolli.</p><table class="guide-table"><thead><tr><th>Contenuto del manuale</th><th>Pagine PDF</th></tr></thead><tbody><tr><td>Introduzione e fondamenti</td><td>4–13</td></tr><tr><td>Termoterapia</td><td>14–28</td></tr><tr><td>Esercizio terapeutico</td><td>29–54</td></tr><tr><td>Idroterapia</td><td>55–72</td></tr><tr><td>Terapie strumentali</td><td>73–148</td></tr><tr><td>Gestione ortopedica e neurologica</td><td>149–214</td></tr><tr><td>Protocollo e valutazione dei risultati</td><td>215–226</td></tr><tr><td>Taping neuromuscolare</td><td>227–240</td></tr><tr><td>Ortesi e ausili</td><td>241–257</td></tr></tbody></table><h2>Studiare con il manuale</h2><p>Le domande verificano i contenuti del libro, comprese le indicazioni e i limiti presentati dall’autrice. Il materiale non è un esame ufficiale e non sostituisce la valutazione clinica. Tempi, parametri e tecniche descritti nel manuale vanno interpretati nel loro contesto: le risposte di ripasso non sono prescrizioni per un animale.</p></article>`;
+    main.innerHTML=`<article class="guide"><a class="back-link" href="#m">Torna ai test</a><h1 tabindex="-1">Come usare i test</h1><p>La raccolta comprende <strong>10 test a risposta multipla di 40 domande</strong> e <strong>10 test a risposta aperta di 20 domande</strong>. Le 600 domande sono distinte; alcuni concetti vengono ripresi da prospettive diverse. Ogni test attraversa più argomenti del manuale.</p><p>Sono escluse le domande sui principi e sulle tecniche degli interventi chirurgici. Sono mantenute le domande sulla riabilitazione dei pazienti operati, sulle precauzioni e sul recupero funzionale.</p><h2>Risposte e correzione</h2><p>Nelle prove a scelta multipla c’è una sola risposta corretta. Puoi saltare una domanda e tornarci prima di consegnare. Alla consegna vengono mostrati il punteggio, le risposte corrette e i riferimenti alle pagine. Le risposte errate o non date valgono zero: non ci sono penalità.</p><p>Nelle prove aperte scrivi prima la tua risposta e, dopo la consegna, confrontala con il modello. I modelli sintetizzano i punti da ricordare: formulazioni diverse possono essere altrettanto valide. L’autovalutazione da 0 a 2 punti è scelta da te; non viene effettuata alcuna correzione tramite IA.</p><p>Da ogni test consegnato puoi esportare e copiare un testo completo con domande, risposte e risultati. Puoi anche ripetere il test: dopo conferma, il tentativo precedente di quel test viene sostituito.</p><h2>Riprendere un test</h2><p>Le risposte sono salvate nel browser e sul dispositivo che stai usando. Per ritrovarle, apri il link nello stesso browser. La navigazione privata, la cancellazione dei dati del browser o il passaggio dal browser interno di WhatsApp a un altro browser possono rendere indisponibili i progressi. Non c’è sincronizzazione fra dispositivi.</p><p>Con questo aggiornamento si conservano le risposte alle domande rimaste. Le nuove domande partono senza risposta e i test modificati devono essere completati e riconsegnati. Le autovalutazioni delle risposte aperte conservate restano disponibili; se riscrivi una risposta, dovrai autovalutarla di nuovo.</p><p>Il programma non invia le risposte al docente o ad altri studenti. Se desideri conservare il risultato, esportalo dopo la consegna. Questo è uno strumento di esercitazione: le soluzioni sono incluse nel programma.</p><h2>Libro e riferimenti</h2><p>Fonte: <cite>Fisioterapia riabilitativa del cane e del gatto</cite>, Ludovica Dragone, Edra, PDF fornito di 258 pagine. Domande e risposte sono una rielaborazione per il ripasso; il libro e le sue immagini non sono inclusi nel programma.</p><p>I riferimenti indicano <strong>il numero della pagina nel file PDF</strong>, contando dalla copertina, e non sempre coincidono con il numero stampato sul libro. Per esempio, la pagina 215 del PDF corrisponde all’inizio del capitolo sui protocolli.</p><table class="guide-table"><thead><tr><th>Contenuto del manuale</th><th>Pagine PDF</th></tr></thead><tbody><tr><td>Introduzione e fondamenti</td><td>4–13</td></tr><tr><td>Termoterapia</td><td>14–28</td></tr><tr><td>Esercizio terapeutico</td><td>29–54</td></tr><tr><td>Idroterapia</td><td>55–72</td></tr><tr><td>Terapie strumentali</td><td>73–148</td></tr><tr><td>Gestione ortopedica e neurologica</td><td>149–214</td></tr><tr><td>Protocollo e valutazione dei risultati</td><td>215–226</td></tr><tr><td>Taping neuromuscolare</td><td>227–240</td></tr><tr><td>Ortesi e ausili</td><td>241–257</td></tr></tbody></table><h2>Studiare con il manuale</h2><p>Le domande verificano i contenuti del libro, comprese le indicazioni e i limiti presentati dall’autrice. Il materiale non è un esame ufficiale e non sostituisce la valutazione clinica. Tempi, parametri e tecniche descritti nel manuale vanno interpretati nel loro contesto: le risposte di ripasso non sono prescrizioni per un animale.</p></article>`;
   }
   function route() {
     const hash=location.hash.slice(1).toLowerCase();
@@ -172,7 +188,12 @@
     }
     const q=current.questions[a.index];
     if(target.name==='answer' && current.kind==='M')a.answers[q.id]=Number(target.value);
-    else if(target.id==='open-answer' && current.kind==='O')a.answers[q.id]=target.value.slice(0,8000);
+    else if(target.id==='open-answer' && current.kind==='O'){
+      const value=target.value.slice(0,8000);
+      /** Una risposta riscritta deve essere autovalutata di nuovo dopo la consegna. */
+      if(a.answers[q.id]!==value)delete a.grades[q.id];
+      a.answers[q.id]=value;
+    }
     else return;
     save();updateAnswerProgress();
   });
@@ -202,5 +223,6 @@
   dialog.addEventListener('cancel',()=>{confirmAction=null;});
   window.addEventListener('hashchange',route);
   window.addEventListener('pagehide',save);
+  if(migrationPending)save();
   route();
 })();
